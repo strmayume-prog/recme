@@ -17,7 +17,10 @@ PAYMENT_LINK_BR = "https://buy.stripe.com/3cI7sDdEf3pO1B3bzzgEg02"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     
-    keyboard = [[InlineKeyboardButton("USD 17.99", url=PAYMENT_LINK_USD)]]
+    keyboard = [
+        [InlineKeyboardButton("USD 17.99", url=PAYMENT_LINK_USD)],
+        [InlineKeyboardButton("BRL 0,50", url=PAYMENT_LINK_BR)]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     message_text = """Attention: Follow the instructions
