@@ -11,7 +11,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Bot token from BotFather
-BOT_TOKEN = "7470899134:AAHAukDv6b1CKadBYv9rwEP5P3oECCgjymo"
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
 # Payment link
 PAYMENT_LINK = "https://buy.stripe.com/eVqeV5as37G4bbD1YZgEg01"
