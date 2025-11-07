@@ -1,7 +1,7 @@
 import os
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Enable logging
 logging.basicConfig(
@@ -13,7 +13,7 @@ logging.basicConfig(
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '7470899134:AAHAukDv6b1CKadBYv9rwEP5P3oECCgjymo')
 PAYMENT_LINK = "https://buy.stripe.com/eVqeV5as37G4bbD1YZgEg01"
 
-def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     
     keyboard = [[InlineKeyboardButton("USD 17.99", url=PAYMENT_LINK)]]
@@ -29,24 +29,19 @@ After clicking on the link:
 
 REMEMBER TO PUT THE CORRECT INFORMATION"""
     
-    update.message.reply_text(message_text, reply_markup=reply_markup)
+    await update.message.reply_text(message_text, reply_markup=reply_markup)
 
-def main():
+def main() -> None:
     """Start the bot."""
-    updater = Updater(BOT_TOKEN, use_context=True)
-    
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
+    # Create Application
+    application = Application.builder().token(BOT_TOKEN).build()
     
     # Add command handler
-    dp.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", start))
     
     # Start the Bot
     print("Bot is starting...")
-    updater.start_polling()
-    
-    # Run the bot until you press Ctrl-C
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
