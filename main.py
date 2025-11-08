@@ -1,8 +1,9 @@
 import os
 import logging
-from flask import Flask, request
+from flask import Flask
+import threading
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Configurações
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '7470899134:AAHAukDv6b1CKadBYv9rwEP5P3oECCgjymo')
@@ -10,7 +11,10 @@ PAYMENT_LINK_USD = "https://buy.stripe.com/eVqeV5as37G4bbD1YZgEg01"
 PAYMENT_LINK_BR = "https://buy.stripe.com/3cI7sDdEf3pO1B3bzzgEg02"
 
 app = Flask(__name__)
-application = Application.builder().token(BOT_TOKEN).build()
+
+@app.route('/')
+def home():
+    return "🤖 Bot Telegram está rodando!"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
@@ -31,35 +35,22 @@ REMEMBER TO PUT THE CORRECT INFORMATION"""
     
     await update.message.reply_text(message_text, reply_markup=reply_markup)
 
-# Configurar handlers
-application.add_handler(CommandHandler("start", start))
-
-@app.route('/')
-def home():
-    return "🤖 Bot Telegram está rodando com Webhook!"
-
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Webhook endpoint para receber atualizações do Telegram"""
+def run_bot():
+    """Run the bot with polling"""
     try:
-        json_data = await request.get_json()
-        update = Update.de_json(json_data, application.bot)
-        await application.process_update(update)
-        return 'OK'
+        application = Application.builder().token(BOT_TOKEN).build()
+        application.add_handler(CommandHandler("start", start))
+        print("🤖 Bot starting with polling...")
+        application.run_polling()
     except Exception as e:
-        logging.error(f"Erro no webhook: {e}")
-        return 'ERROR', 500
-
-@app.route('/set_webhook', methods=['GET'])
-async def set_webhook():
-    """Configurar webhook no Telegram"""
-    try:
-        webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
-        result = await application.bot.set_webhook(webhook_url)
-        return f"Webhook configurado: {webhook_url} - {result}"
-    except Exception as e:
-        return f"Erro ao configurar webhook: {e}"
+        print(f"❌ Bot error: {e}")
 
 if __name__ == '__main__':
+    # Start bot in background thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # Start Flask app
     port = int(os.environ.get("PORT", 10000))
+    print(f"🌐 Web server starting on port {port}...")
     app.run(host='0.0.0.0', port=port, debug=False)
