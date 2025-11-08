@@ -1,22 +1,29 @@
 import os
 import logging
-from flask import Flask
-import threading
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-# Configurações
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+# Get bot token and webhook URL
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '7470899134:AAHAukDv6b1CKadBYv9rwEP5P3oECCgjymo')
 PAYMENT_LINK_USD = "https://buy.stripe.com/eVqeV5as37G4bbD1YZgEg01"
 PAYMENT_LINK_BR = "https://buy.stripe.com/3cI7sDdEf3pO1B3bzzgEg02"
 
+# Create Flask app
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "🤖 Bot Telegram está rodando!"
+# Global variable to store the application
+application = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    
     keyboard = [
         [InlineKeyboardButton("USD 17.99", url=PAYMENT_LINK_USD)],
         [InlineKeyboardButton("BRL 0,50", url=PAYMENT_LINK_BR)]
@@ -35,22 +42,65 @@ REMEMBER TO PUT THE CORRECT INFORMATION"""
     
     await update.message.reply_text(message_text, reply_markup=reply_markup)
 
-def run_bot():
-    """Run the bot with polling"""
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Echo the user message."""
+    await update.message.reply_text("Use /start to begin")
+
+@app.route('/')
+def home():
+    return "🤖 Telegram Bot is running with Webhooks!"
+
+@app.route('/webhook', methods=['POST'])
+async def webhook():
+    """Webhook endpoint for Telegram."""
+    if application is None:
+        return "Bot not initialized", 500
+    
     try:
-        application = Application.builder().token(BOT_TOKEN).build()
-        application.add_handler(CommandHandler("start", start))
-        print("🤖 Bot starting with polling...")
-        application.run_polling()
+        json_data = await request.get_json()
+        update = Update.de_json(json_data, application.bot)
+        await application.process_update(update)
+        return "OK"
     except Exception as e:
-        print(f"❌ Bot error: {e}")
+        logging.error(f"Error processing update: {e}")
+        return "Error", 500
+
+def setup_bot():
+    """Setup the bot application."""
+    global application
+    
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    
+    return application
+
+@app.before_request
+async def before_request():
+    """Initialize bot before first request."""
+    global application
+    if application is None:
+        application = setup_bot()
 
 if __name__ == '__main__':
-    # Start bot in background thread
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
+    # Setup bot
+    application = setup_bot()
     
-    # Start Flask app
-    port = int(os.environ.get("PORT", 10000))
-    print(f"🌐 Web server starting on port {port}...")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Get the Render URL (you'll need to set this as an environment variable)
+    render_url = os.environ.get('RENDER_URL')
+    
+    if render_url:
+        # Set webhook for production
+        webhook_url = f"{render_url}/webhook"
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 10000)),
+            webhook_url=webhook_url,
+            secret_token='WEBHOOK_SECRET'  # Optional: add for security
+        )
+    else:
+        # Fallback to polling for local development
+        print("🤖 Starting bot with polling...")
+        application.run_polling()
